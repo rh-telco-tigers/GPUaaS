@@ -1,0 +1,23 @@
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: ClusterQueue
+metadata:
+  name: t4-queue
+  annotations:
+    description: "FIFO GPUaaS demo — 3× T4 GPU, BestEffortFIFO; 4th job waits"
+spec:
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: gpuaas-demo
+  preemption:
+    withinClusterQueue: LowerPriority
+  resourceGroups:
+  - coveredResources: ["cpu", "memory", "nvidia.com/gpu"]
+    flavors:
+    - name: t4-gpu
+      resources:
+      - name: cpu
+        nominalQuota: 8
+      - name: memory
+        nominalQuota: 32Gi
+      - name: nvidia.com/gpu
+        nominalQuota: 3

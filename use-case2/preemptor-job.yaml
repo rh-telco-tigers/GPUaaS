@@ -1,0 +1,55 @@
+# UC2: Priority & Preemption — high-priority inference job (alice)
+#
+#
+# Demo flow:
+#   1. medium-priority DS jobs fill inference-queue
+#   2. Apply this file — high-priority job arrives
+#   3. Kueue preempts one of jobs to admit high priority job immediately
+#   4. Evicted job becomes Inadmissible (not deleted) — re-admits when high priority job finishes
+#
+# NOTE: kueue.x-k8s.io/queue-name must be in Pod template LABELS (not Job annotations)
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: high-priority-inference-job
+  namespace: gpuaas-demo
+  labels:
+    kueue.x-k8s.io/queue-name: inference-queue
+    kueue.x-k8s.io/priority-class: high-priority
+spec:
+  suspend: true
+  parallelism: 3
+  completions: 3
+  template:
+    metadata:
+      labels:
+        kueue.x-k8s.io/queue-name: inference-queue
+        kueue.x-k8s.io/priority-class: high-priority
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: inference
+          image: registry.access.redhat.com/ubi9/ubi
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              echo "=== Job: high-priority-inference-job (high-priority: 1000) ==="
+              echo "Node: $NODE_NAME"
+              echo "GPUs requested: 3"
+              echo ""
+              END=$((SECONDS+300))
+              while [ $SECONDS -lt $END ]; do
+                echo "--- $(date) ---"
+                nvidia-smi
+                echo ""
+                sleep 5
+              done
+              echo "=== Job complete after 5 minutes ==="
+          resources:
+            requests:
+              cpu: "2"
+              memory: "4Gi"
+              nvidia.com/gpu: "1"                    
+            limits:
+              nvidia.com/gpu: "1"

@@ -1,0 +1,9 @@
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: LocalQueue
+metadata:
+  name: team-fifo-queue
+  namespace: gpuaas-demo
+  annotations:
+    description: "Team submit point — routes to fifo-gpu-queue-3 (3 GPU FIFO)"
+spec:
+  clusterQueue: t4-queue

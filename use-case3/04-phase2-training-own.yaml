@@ -1,0 +1,38 @@
+# Phase 2 — Training uses its own quota (1 of 1 GPU)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: training-job-1
+  namespace: gpuaas-cohort-demo
+  labels:
+    kueue.x-k8s.io/queue-name: training-queue
+    demo.phase: "2"
+spec:
+  suspend: true
+  template:
+    metadata:
+      labels:
+        kueue.x-k8s.io/queue-name: training-queue
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: training
+          image: registry.access.redhat.com/ubi9/ubi
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              echo "=== training-job-1 (own quota) ==="
+              echo "Node: $HOSTNAME"
+              END=$((SECONDS+1800))
+              while [ $SECONDS -lt $END ]; do
+                echo "--- $(date) ---"
+                nvidia-smi 2>/dev/null || echo "(nvidia-smi unavailable)"
+                sleep 10
+              done
+          resources:
+            requests:
+              cpu: "2"
+              memory: "4Gi"
+              nvidia.com/gpu: "1"
+            limits:
+              nvidia.com/gpu: "1"

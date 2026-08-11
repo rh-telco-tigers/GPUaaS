@@ -1,0 +1,19 @@
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: LocalQueue
+metadata:
+  name: inference-queue
+  namespace: gpuaas-cohort-demo
+  annotations:
+    description: "Serving team submit point → t4-inferencing-queue"
+spec:
+  clusterQueue: t4-inferencing-queue
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: LocalQueue
+metadata:
+  name: training-queue
+  namespace: gpuaas-cohort-demo
+  annotations:
+    description: "Training team submit point → t4-training-queue"
+spec:
+  clusterQueue: t4-training-queue

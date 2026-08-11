@@ -1,0 +1,62 @@
+# Cohort ClusterQueues — inference lends idle T4s; training borrows
+#
+# Physical GPUs: 3× T4 (same ResourceFlavor: t4-gpu)
+#   inference: nominal 2, lendingLimit 1 (always keeps 1 reserved)
+#   training:  nominal 1, borrowingLimit 1 (can borrow 1 idle from cohort)
+#
+# reclaimWithinCohort on inference lets serving take back lent GPUs.
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: ClusterQueue
+metadata:
+  name: t4-inferencing-queue
+  annotations:
+    description: "Inference / serving — 2 GPU nominal, lends at most 1"
+spec:
+  cohortName: gpu-cohort
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: gpuaas-cohort-demo
+  preemption:
+    withinClusterQueue: LowerPriority
+    reclaimWithinCohort: Any
+  resourceGroups:
+  - coveredResources: ["cpu", "memory", "nvidia.com/gpu"]
+    flavors:
+    - name: t4-gpu
+      resources:
+      - name: cpu
+        nominalQuota: 16
+      - name: memory
+        nominalQuota: 64Gi
+      - name: nvidia.com/gpu
+        nominalQuota: 2
+        lendingLimit: 1
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: ClusterQueue
+metadata:
+  name: t4-training-queue
+  annotations:
+    description: "Training — 1 GPU nominal, may borrow 1 idle from cohort"
+spec:
+  cohortName: gpu-cohort
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: gpuaas-cohort-demo
+  preemption:
+    withinClusterQueue: LowerPriority
+  resourceGroups:
+  - coveredResources: ["cpu", "memory", "nvidia.com/gpu"]
+    flavors:
+    - name: t4-gpu
+      resources:
+      - name: cpu
+        nominalQuota: 8
+        borrowingLimit: 8
+      - name: memory
+        nominalQuota: 32Gi
+        borrowingLimit: 32Gi
+      - name: nvidia.com/gpu
+        nominalQuota: 1
+        borrowingLimit: 1
