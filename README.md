@@ -21,6 +21,46 @@ spec:
 
 ---
 
+## GPU Time Slicing
+
+Each physical T4 is sliced into **3 virtual GPUs** so that multiple workloads can share a single card. 
+
+### 1. Create the time-slicing ConfigMap
+
+This creates a ConfigMap in the `nvidia-gpu-operator` namespace that tells the NVIDIA device plugin how to slice each GPU. The config sets `replicas: 3`, meaning each physical T4 will be advertised as 3 virtual GPUs. So in total we will get 9 GPUs.
+
+```bash
+oc apply -f time-slicing/time-slicing-config.yaml
+```
+
+### 2. Patch the GPU ClusterPolicy
+
+The NVIDIA GPU Operator manages GPU resources through a `ClusterPolicy` CR called `gpu-cluster-policy`. This patch updates its `devicePlugin` section to reference the time-slicing ConfigMap created above, so the device plugin picks up the slicing configuration.
+
+```bash
+oc patch clusterpolicy gpu-cluster-policy -n nvidia-gpu-operator --type merge \
+  -p '{"spec": {"devicePlugin": {"config": {"name": "time-slicing-config"}}}}'
+```
+
+### 3. Label GPU nodes
+
+To make sure the resources are configured correctly, we label a specific node stating that the device-plugin.config should point to the configuration we created in the previous steps. This means also that the configuration can be applied on a per node basis.
+
+```bash
+    oc label \
+    --overwrite node <node-name> \
+    nvidia.com/device-plugin.config=Tesla-T4
+```
+
+After a moment, verify the advertised GPU count has tripled (e.g. 1 physical GPUs → 3):
+
+```bash
+oc get node -l nvidia.com/gpu.product=Tesla-T4-SHARED -o json \
+  | jq '.items[] | {name: .metadata.name, gpus: .status.capacity["nvidia.com/gpu"]}'
+```
+
+---
+
 ## Install Red Hat Kueue
 
 ### 1. Install the operator
