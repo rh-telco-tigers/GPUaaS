@@ -23,11 +23,11 @@ spec:
 
 ## GPU Time Slicing
 
-Each physical T4 is sliced into **3 virtual GPUs** so that multiple workloads can share a single card. 
+Two physical T4 is sliced into **2 virtual GPUs**. 
 
 ### 1. Create the time-slicing ConfigMap
 
-This creates a ConfigMap in the `nvidia-gpu-operator` namespace that tells the NVIDIA device plugin how to slice each GPU. The config sets `replicas: 3`, meaning each physical T4 will be advertised as 3 virtual GPUs. So in total we will get 9 GPUs.
+This creates a ConfigMap in the `nvidia-gpu-operator` namespace that tells the NVIDIA device plugin how to slice each GPU. The config sets `replicas: 2`, meaning each physical T4 will be advertised as 2 virtual GPUs. So in total we will get 5 GPUs.
 
 ```bash
 oc apply -f time-slicing/time-slicing-config.yaml
@@ -56,7 +56,7 @@ To make sure the resources are configured correctly, we label a specific node st
     nvidia.com/device-plugin.config=Tesla-T4
 ```
 
-After a moment, verify the advertised GPU count has tripled (e.g. 1 physical GPUs → 3):
+After a moment, verify the advertised GPU count has doubled (e.g. 1 physical GPUs → 2):
 
 ```bash
 oc get node -l nvidia.com/gpu.product=Tesla-T4-SHARED -o json \

@@ -22,8 +22,6 @@ oc get node <node-name> -o json \
 
 ---
 
-## Demo
-
 ### Step 1 — Create hardware profile
 
 In the OpenShift AI dashboard, go to **Settings → Hardware profiles → Create hardware profile**.
