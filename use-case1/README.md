@@ -32,7 +32,7 @@ In the OpenShift AI dashboard, go to **Settings → Hardware profiles → Create
 
 This makes sure both models land on the node where time slicing is active.
 
-### Step 2 — Deploy Granite 4.2
+### Step 2 — Deploy Ministral
 
 From the model catalog, deploy **ministral-3B**.Pick `use-case1-hw-profile` as the hardware profile and add these serving runtime args:
 
@@ -43,7 +43,7 @@ From the model catalog, deploy **ministral-3B**.Pick `use-case1-hw-profile` as t
 ```
 
 
-### Step 3 — Deploy Ministral
+### Step 3 — Deploy Granite 4.2
 
 Deploy **granite-4.2** the same way — same hardware profile, different args:
 
