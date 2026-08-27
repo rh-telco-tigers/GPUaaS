@@ -5,7 +5,3 @@ metadata:
 spec:
   nodeLabels:
     nvidia.com/gpu.product: NVIDIA-T4
-  tolerations:
-  - key: "nvidia.com/gpu"
-    operator: "Exists"
-    effect: "NoSchedule"

@@ -3,7 +3,7 @@ kind: ClusterQueue
 metadata:
   name: t4-queue
   annotations:
-    description: "Priority GPUaaS demo"
+    description: "FIFO GPUaaS demo — 3× T4 GPU, BestEffortFIFO; 4th job waits"
 spec:
   namespaceSelector:
     matchLabels:

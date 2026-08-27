@@ -1,104 +1,86 @@
-# Use Case 1: FIFO Queue Scheduling
+# Use Case 1: Two Models, One GPU (Time Slicing)
 
-Teams submit more GPU work than the cluster can run at once. Without a queue, excess jobs fail and people retry by hand. With Kueue, jobs that exceed quota **wait** and are **admitted automatically** the moment a slot opens.
+A single T4 is time-sliced into 2 virtual GPUs. We deploy Granite 4.2 and Ministral side by side on the same card, each getting its own slice. A hardware profile with a node selector pins both models to the right node.
 
-## Setup (3 T4s, one queue)
+## Setup
 
 | Piece | Value |
 |-------|-------|
-| ClusterQueue | `t4-queue` — **3** GPUs |
-| LocalQueue | `team-fifo-queue` → `t4-queue` |
-| Jobs | `fifo-fill-1..3` + `fifo-waiter-4` — 1 GPU each |
+| Time slicing | `replicas: 2` on the target T4 |
+| Hardware profile | `use-case1-hw-profile` — 1 GPU, node selector pointing at the sliced node |
+| Granite 4.2 | 55 % GPU memory |
+| Ministral | 35 % GPU memory |
+
+Make sure time slicing is already configured — see root [README](../README.md#gpu-time-slicing).
+
+Verify the node shows 2 GPUs:
 
 ```bash
-oc apply -f use-case1/00-namespace.yaml
-oc apply -f use-case1/01-resourceflavor-t4.yaml
-oc apply -f use-case1/02-clusterqueue-3gpu-fifo.yaml
-oc apply -f use-case1/03-localqueue.yaml
+oc get node <node-name> -o json \
+  | jq '{name: .metadata.name, gpus: .status.capacity["nvidia.com/gpu"]}'
 ```
-
-Confirm:
-
-```bash
-oc get clusterqueue t4-queue -o wide
-oc get localqueue -n gpuaas-demo
-oc get workloads -n gpuaas-demo
-```
-
-**Expect:** queue `Active`, GPU quota **3**, empty (`ADMITTED` / `PENDING` = 0).
 
 ---
 
 ## Demo
 
-### Phase 1 — Fill the queue, then overflow
+### Step 1 — Create hardware profile
 
-Four jobs, one GPU each. Only three fit.
+In the OpenShift AI dashboard, go to **Settings → Hardware profiles → Create hardware profile**.
 
-```bash
-oc apply -f use-case1/04-jobs-fill-and-overflow.yaml
+- **Name:** `use-case1-hw-profile`
+- **GPU:** `1`
+- **Node selector:** `kubernetes.io/hostname` = `<node-name>`
+
+This makes sure both models land on the node where time slicing is active.
+
+### Step 2 — Deploy Granite 4.2
+
+From the model catalog, deploy **ministral-3B**.Pick `use-case1-hw-profile` as the hardware profile and add these serving runtime args:
+
+```
+--max-model-len=600
+--gpu-memory-utilization=0.35
+--enforce-eager
 ```
 
-```bash
-oc get workloads -n gpuaas-demo -w
-oc get jobs -n gpuaas-demo
-oc get clusterqueue t4-queue -o wide
+
+### Step 3 — Deploy Ministral
+
+Deploy **granite-4.2** the same way — same hardware profile, different args:
+
+```
+--max-model-len=2048
+--max-num-seqs=4
+--gpu-memory-utilization=0.55
+--enforce-eager
+--enable-auto-tool-choice
+--tool-call-parser=qwen3_coder
+--reasoning-parser=nemotron_v3
 ```
 
-**Expect:**
-- `fifo-fill-1`, `fifo-fill-2`, `fifo-fill-3` → `Admitted` / Running
-- `fifo-waiter-4` → pending / `Inadmissible` (no free GPU quota)
-- Queue at **3 / 3**
-
-The fourth job did not fail — it is waiting.
-
-### Phase 2 — Free a slot; waiter admits
+### Step 4 — Check it
 
 ```bash
-oc delete job fifo-fill-1 -n gpuaas-demo
+oc get pods -o wide | grep -E "granite|ministral"
 ```
+
+Both pods should be Running on the same node. Confirm GPU usage:
 
 ```bash
-oc get workloads -n gpuaas-demo -w
-oc get clusterqueue t4-queue -o wide
+oc describe node <node-name> | grep -A5 "nvidia.com/gpu"
 ```
 
-**Expect:** `fifo-waiter-4` moves `Inadmissible` → `QuotaReserved` → `Admitted` within seconds.
-
-No retry script. Kueue saw the free slot and admitted the next job.
-
-### Phase 3 — Final state
-
-```bash
-oc get jobs -n gpuaas-demo
-oc get workloads -n gpuaas-demo
-oc get clusterqueue t4-queue -o wide
-```
-
-**Expect:** three workloads running (`fifo-fill-2`, `fifo-fill-3`, `fifo-waiter-4`), zero pending. The queue self-healed.
+You should see 2/2 virtual GPUs allocated.
 
 ---
 
-## Watch (optional)
-
-```bash
-oc get workloads -n gpuaas-demo -w
-watch -n 2 "oc get clusterqueue t4-queue -o wide"
-```
-
 ## Cleanup
 
-```bash
-oc delete -f use-case1/04-jobs-fill-and-overflow.yaml --ignore-not-found
-oc delete -f use-case1/03-localqueue.yaml --ignore-not-found
-oc delete -f use-case1/02-clusterqueue-3gpu-fifo.yaml --ignore-not-found
-oc delete -f use-case1/01-resourceflavor-t4.yaml --ignore-not-found
-oc delete -f use-case1/00-namespace.yaml --ignore-not-found
-```
+Delete both model deployments from the dashboard, then remove `use-case1-hw-profile` from **Settings → Hardware profiles**.
 
 ## Notes
 
-- Jobs use `spec.suspend: true` and `kueue.x-k8s.io/queue-name: team-fifo-queue` on Job metadata **and** pod template labels.
-- Quota math: 3 GPUs × 1 GPU per job → at most 3 admitted; the 4th waits until capacity frees.
-- Kueue needs `BatchJob` enabled — see root README.
-- Clean up other use-case queues first if they still hold these 3 T4s.
+- `gpu-memory-utilization` of 0.55 + 0.35 = 0.90 — leaves some headroom on the physical card.
+- `enforce-eager` stops CUDA graph allocation, which helps when two models share a card.
+- `max-model-len` and `max-num-seqs` keep KV-cache size in check so both models fit.

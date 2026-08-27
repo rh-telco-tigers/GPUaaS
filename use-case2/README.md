@@ -1,87 +1,81 @@
-# Use Case 2: Priority & Preemption
+# Use Case 1: FIFO Queue Scheduling
 
-A shared GPU queue fills with lower-priority serving work. When a **high-priority** job arrives, Kueue **preempts** it so production runs immediately. The preempted model is not deleted — it waits and **comes back** when capacity frees.
+Teams submit more GPU work than the cluster can run at once. Without a queue, excess jobs fail and people retry by hand. With Kueue, jobs that exceed quota **wait** and are **admitted automatically** the moment a slot opens.
 
 ## Setup (3 T4s, one queue)
 
 | Piece | Value |
 |-------|-------|
-| ClusterQueue | `t4-queue` — **3** GPUs, `withinClusterQueue: LowerPriority` |
-| LocalQueue | `inference-queue` → `t4-queue` |
-| Priorities | `medium-priority` (500), `high-priority` (1000) |
+| ClusterQueue | `t4-queue` — **3** GPUs |
+| LocalQueue | `team-fifo-queue` → `t4-queue` |
+| Jobs | `fifo-fill-1..3` + `fifo-waiter-4` — 1 GPU each |
 
 ```bash
 oc apply -f use-case2/00-namespace.yaml
 oc apply -f use-case2/01-resourceflavor-t4.yaml
 oc apply -f use-case2/02-clusterqueue-3gpu-fifo.yaml
-oc apply -f use-case2/03-workload-priority.yaml
-oc apply -f use-case2/04-localqueue.yaml
+oc apply -f use-case2/03-localqueue.yaml
 ```
 
 Confirm:
 
 ```bash
-oc get workloadpriorityclass
 oc get clusterqueue t4-queue -o wide
 oc get localqueue -n gpuaas-demo
+oc get workloads -n gpuaas-demo
 ```
 
-**Expect:** priorities `500` / `1000`, queue `Active`, GPU quota **3**, empty.
-
-In the **RHOAI console**, create a HardwareProfile on project `gpuaas-demo` tied to LocalQueue **`inference-queue`** (T4 / GPU) with **medium** priority so the preemptor can win.
+**Expect:** queue `Active`, GPU quota **3**, empty (`ADMITTED` / `PENDING` = 0).
 
 ---
 
 ## Demo
 
-### Phase 1 — Medium-priority serving fills the queue
+### Phase 1 — Fill the queue, then overflow
 
-Deploy a **small catalog model** with that HardwareProfile.
-
-```bash
-oc get workloads -n gpuaas-demo -w
-oc get pods -n gpuaas-demo
-oc get clusterqueue t4-queue -o wide
-```
-
-**Expect:** model workload `Admitted`, serving pods Running, queue holding GPU capacity.
-
-Serving is up — but only at medium priority.
-
-### Phase 2 — High priority arrives and preempts
+Four jobs, one GPU each. Only three fit.
 
 ```bash
-oc apply -f use-case2/preemptor-job.yaml
+oc apply -f use-case2/04-jobs-fill-and-overflow.yaml
 ```
 
 ```bash
 oc get workloads -n gpuaas-demo -w
-oc get events -n gpuaas-demo --field-selector=reason=Preempted --sort-by='.lastTimestamp'
+oc get jobs -n gpuaas-demo
 oc get clusterqueue t4-queue -o wide
 ```
 
 **Expect:**
-- `high-priority-inference-job` → `Admitted` (3 pods × 1 GPU)
-- Model workload → `Evicted` / `Inadmissible` (not deleted, not permanently Failed)
-- Serving pods stop; preemptor pods Running
+- `fifo-fill-1`, `fifo-fill-2`, `fifo-fill-3` → `Admitted` / Running
+- `fifo-waiter-4` → pending / `Inadmissible` (no free GPU quota)
+- Queue at **3 / 3**
 
-**Say:** The model wasn't deleted. Kueue evicted it so high priority could run.
+The fourth job did not fail — it is waiting.
 
-### Phase 3 — Preemptor gone; model returns
+### Phase 2 — Free a slot; waiter admits
 
 ```bash
-oc delete -f use-case2/preemptor-job.yaml
+oc delete job fifo-fill-1 -n gpuaas-demo
 ```
 
 ```bash
 oc get workloads -n gpuaas-demo -w
-oc get pods -n gpuaas-demo
 oc get clusterqueue t4-queue -o wide
 ```
 
-**Expect:** preemptor gone; model re-admits (`QuotaReserved` → `Admitted`); serving pods come back Ready.
+**Expect:** `fifo-waiter-4` moves `Inadmissible` → `QuotaReserved` → `Admitted` within seconds.
 
-No redeploy — capacity freed, and the medium-priority workload returns on its own.
+No retry script. Kueue saw the free slot and admitted the next job.
+
+### Phase 3 — Final state
+
+```bash
+oc get jobs -n gpuaas-demo
+oc get workloads -n gpuaas-demo
+oc get clusterqueue t4-queue -o wide
+```
+
+**Expect:** three workloads running (`fifo-fill-2`, `fifo-fill-3`, `fifo-waiter-4`), zero pending. The queue self-healed.
 
 ---
 
@@ -90,17 +84,13 @@ No redeploy — capacity freed, and the medium-priority workload returns on its 
 ```bash
 oc get workloads -n gpuaas-demo -w
 watch -n 2 "oc get clusterqueue t4-queue -o wide"
-watch -n 2 "oc get pods -n gpuaas-demo"
 ```
 
 ## Cleanup
 
-Remove the catalog model (and HardwareProfile if you don’t need it), then:
-
 ```bash
-oc delete -f use-case2/preemptor-job.yaml --ignore-not-found
-oc delete -f use-case2/04-localqueue.yaml --ignore-not-found
-oc delete -f use-case2/03-workload-priority.yaml --ignore-not-found
+oc delete -f use-case2/04-jobs-fill-and-overflow.yaml --ignore-not-found
+oc delete -f use-case2/03-localqueue.yaml --ignore-not-found
 oc delete -f use-case2/02-clusterqueue-3gpu-fifo.yaml --ignore-not-found
 oc delete -f use-case2/01-resourceflavor-t4.yaml --ignore-not-found
 oc delete -f use-case2/00-namespace.yaml --ignore-not-found
@@ -108,7 +98,7 @@ oc delete -f use-case2/00-namespace.yaml --ignore-not-found
 
 ## Notes
 
-- Use a **small** catalog model so Phase 1 is fast and fits under the 3-GPU quota until the preemptor claims all three.
-- Preemptor uses `kueue.x-k8s.io/queue-name` and `kueue.x-k8s.io/priority-class` on Job metadata **and** pod template labels; `spec.suspend: true`.
-- Kueue needs `BatchJob` plus serving frameworks (`Deployment` / `StatefulSet`) — see root README.
+- Jobs use `spec.suspend: true` and `kueue.x-k8s.io/queue-name: team-fifo-queue` on Job metadata **and** pod template labels.
+- Quota math: 3 GPUs × 1 GPU per job → at most 3 admitted; the 4th waits until capacity frees.
+- Kueue needs `BatchJob` enabled — see root README.
 - Clean up other use-case queues first if they still hold these 3 T4s.

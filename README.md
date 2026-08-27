@@ -48,7 +48,11 @@ To make sure the resources are configured correctly, we label a specific node st
 
 ```bash
     oc label \
-    --overwrite node <node-name> \
+    --overwrite node <node-name-1> \
+    nvidia.com/device-plugin.config=Tesla-T4
+
+    oc label \
+    --overwrite node <node-name-2> \
     nvidia.com/device-plugin.config=Tesla-T4
 ```
 
@@ -115,8 +119,9 @@ Namespaces used by demos are labeled `kueue.openshift.io/managed: "true"` in eac
 
 | # | Use case | Guide | What it shows |
 |---|----------|-------|---------------|
-| 1 | FIFO queue scheduling | [`use-case1/`](./use-case1/) | Jobs wait when quota is full; auto-admit when a slot frees |
-| 2 | Priority & preemption | [`use-case2/`](./use-case2/) | High-priority work preempts lower-priority; preempted work returns |
-| 3 | Cohort borrowing & reclaim | [`use-case3/`](./use-case3/) | Training borrows idle inference GPUs; inference reclaim takes them back |
+| 1 | Two models on one GPU | [`use-case1/`](./use-case1/) | Time-slice a T4 into 2 virtual GPUs; deploy Granite 4.2 and Ministral side by side |
+| 2 | FIFO queue scheduling | [`use-case2/`](./use-case2/) | Jobs wait when quota is full; auto-admit when a slot frees |
+| 3 | Priority & preemption | [`use-case3/`](./use-case3/) | High-priority work preempts lower-priority; preempted work returns |
+| 4 | Cohort borrowing & reclaim | [`use-case4/`](./use-case4/) | Training borrows idle inference GPUs; inference reclaim takes them back |
 
 Open a use-case folder and follow its README. Run **one use case at a time** so they do not compete for the same 3 GPUs.
