@@ -33,7 +33,7 @@ oc get workloads -n gpuaas-demo
 
 ### Phase 1 — Fill the queue, then overflow
 
-Four jobs, one GPU each. Only three fit.
+Three jobs, one GPU each. Only two fit.
 
 ```bash
 oc apply -f use-case2/04-jobs-fill-and-overflow.yaml
