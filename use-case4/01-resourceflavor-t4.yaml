@@ -4,4 +4,4 @@ metadata:
   name: t4-gpu
 spec:
   nodeLabels:
-    nvidia.com/gpu.product: NVIDIA-T4
+    nvidia.com/gpu.product: Tesla-T4

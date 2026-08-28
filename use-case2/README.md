@@ -1,4 +1,4 @@
-# Use Case 1: FIFO Queue Scheduling
+# Use Case 2: FIFO Queue Scheduling
 
 Teams submit more GPU work than the cluster can run at once. Without a queue, excess jobs fail and people retry by hand. With Kueue, jobs that exceed quota **wait** and are **admitted automatically** the moment a slot opens.
 

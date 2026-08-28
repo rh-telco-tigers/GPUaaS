@@ -1,4 +1,4 @@
-# Use Case 2: Priority & Preemption
+# Use Case 3: Priority & Preemption
 
 A shared GPU queue fills with lower-priority serving work. When a **high-priority** job arrives, Kueue **preempts** it so production runs immediately. The preempted model is not deleted — it waits and **comes back** when capacity frees.
 
