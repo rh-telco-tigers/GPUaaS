@@ -1,16 +1,3 @@
-# UC1: FIFO queue scheduling — fill 3 GPUs, overflow waits
-#
-# fifo-gpu-queue-3: nominalQuota=3 GPUs
-#
-# Demo flow:
-#   Step 1: Apply this file — 4 jobs, 1 GPU each
-#           fifo-fill-1..3: admitted (queue full at 3/3)
-#           fifo-waiter-4:  pending / Inadmissible
-#   Step 2: Delete fifo-fill-1 — Kueue auto-admits fifo-waiter-4
-#   Key message: "Jobs wait intelligently — not fail. Platform manages the queue."
-#
-# NOTE: kueue.x-k8s.io/queue-name must be on Job metadata AND pod template labels.
-
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -107,42 +94,6 @@ spec:
               import torch, time, socket
               mem = torch.cuda.get_device_properties(0).total_memory / 1e9
               print(f"fifo-fill-3 | Node: {socket.gethostname()} | GPU: {torch.cuda.get_device_name(0)} | VRAM: {mem:.1f}GB")
-              x = torch.randn(1024, 1024, device='cuda')
-              for i in range(360):  # 30 min hold
-                  _ = torch.mm(x, x)
-                  time.sleep(5)
-          resources:
-            requests:
-              cpu: "2"
-              memory: "4Gi"
-              nvidia.com/gpu: "1"
-            limits:
-              nvidia.com/gpu: "1"
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: fifo-waiter-4
-  namespace: gpuaas-demo
-  labels:
-    kueue.x-k8s.io/queue-name: team-fifo-queue
-spec:
-  suspend: true
-  template:
-    metadata:
-      labels:
-        kueue.x-k8s.io/queue-name: team-fifo-queue
-    spec:
-      restartPolicy: Never
-      containers:
-        - name: gpu-workload
-          image: pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime
-          command: [python, -c]
-          args:
-            - |
-              import torch, time, socket
-              mem = torch.cuda.get_device_properties(0).total_memory / 1e9
-              print(f"fifo-waiter-4 | Node: {socket.gethostname()} | GPU: {torch.cuda.get_device_name(0)} | VRAM: {mem:.1f}GB")
               x = torch.randn(1024, 1024, device='cuda')
               for i in range(360):  # 30 min hold
                   _ = torch.mm(x, x)

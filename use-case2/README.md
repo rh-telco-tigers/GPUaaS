@@ -6,9 +6,9 @@ Teams submit more GPU work than the cluster can run at once. Without a queue, ex
 
 | Piece | Value |
 |-------|-------|
-| ClusterQueue | `t4-queue` — **3** GPUs |
+| ClusterQueue | `t4-queue` — **2** GPUs |
 | LocalQueue | `team-fifo-queue` → `t4-queue` |
-| Jobs | `fifo-fill-1..3` + `fifo-waiter-4` — 1 GPU each |
+| Jobs | `fifo-fill-1..3` — 1 GPU each |
 
 ```bash
 oc apply -f use-case2/00-namespace.yaml
@@ -25,7 +25,7 @@ oc get localqueue -n gpuaas-demo
 oc get workloads -n gpuaas-demo
 ```
 
-**Expect:** queue `Active`, GPU quota **3**, empty (`ADMITTED` / `PENDING` = 0).
+**Expect:** queue `Active`, GPU quota **2**, empty (`ADMITTED` / `PENDING` = 0).
 
 ---
 
@@ -46,11 +46,11 @@ oc get clusterqueue t4-queue -o wide
 ```
 
 **Expect:**
-- `fifo-fill-1`, `fifo-fill-2`, `fifo-fill-3` → `Admitted` / Running
-- `fifo-waiter-4` → pending / `Inadmissible` (no free GPU quota)
-- Queue at **3 / 3**
+- `fifo-fill-1`, `fifo-fill-2` → `Admitted` / Running
+- `fifo-waiter-3` → pending / `Inadmissible` (no free GPU quota)
+- Queue at **2 / 2**
 
-The fourth job did not fail — it is waiting.
+The third job did not fail — it is waiting.
 
 ### Phase 2 — Free a slot; waiter admits
 
@@ -63,7 +63,7 @@ oc get workloads -n gpuaas-demo -w
 oc get clusterqueue t4-queue -o wide
 ```
 
-**Expect:** `fifo-waiter-4` moves `Inadmissible` → `QuotaReserved` → `Admitted` within seconds.
+**Expect:** `fifo-waiter-3` moves `Inadmissible` → `QuotaReserved` → `Admitted` within seconds.
 
 No retry script. Kueue saw the free slot and admitted the next job.
 
@@ -75,7 +75,7 @@ oc get workloads -n gpuaas-demo
 oc get clusterqueue t4-queue -o wide
 ```
 
-**Expect:** three workloads running (`fifo-fill-2`, `fifo-fill-3`, `fifo-waiter-4`), zero pending. The queue self-healed.
+**Expect:** Two workloads running (`fifo-fill-2`, `fifo-fill-3`), zero pending. The queue self-healed.
 
 ---
 
@@ -99,6 +99,6 @@ oc delete -f use-case2/00-namespace.yaml --ignore-not-found
 ## Notes
 
 - Jobs use `spec.suspend: true` and `kueue.x-k8s.io/queue-name: team-fifo-queue` on Job metadata **and** pod template labels.
-- Quota math: 3 GPUs × 1 GPU per job → at most 3 admitted; the 4th waits until capacity frees.
+- Quota math: 2 GPUs × 1 GPU per job → at most 2 admitted; the 3rd waits until capacity frees.
 - Kueue needs `BatchJob` enabled — see root README.
-- Clean up other use-case queues first if they still hold these 3 T4s.
+- Clean up other use-case queues first if they still hold these 2 T4s.

@@ -3,7 +3,7 @@ kind: ClusterQueue
 metadata:
   name: t4-queue
   annotations:
-    description: "FIFO GPUaaS demo — 3× T4 GPU, BestEffortFIFO; 4th job waits"
+    description: "FIFO GPUaaS demo — 2× T4 GPU, BestEffortFIFO; 3rd job waits"
 spec:
   namespaceSelector:
     matchLabels:
@@ -20,4 +20,4 @@ spec:
       - name: memory
         nominalQuota: 32Gi
       - name: nvidia.com/gpu
-        nominalQuota: 3
+        nominalQuota: 2
