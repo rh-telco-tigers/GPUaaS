@@ -2,13 +2,28 @@
 
 A shared GPU queue fills with lower-priority serving work. When a **high-priority** job arrives, Kueue **preempts** it so production runs immediately. The preempted model is not deleted — it waits and **comes back** when capacity frees.
 
-## Setup (3 T4s, one queue)
+## Setup (2 T4s, one queue)
 
 | Piece | Value |
 |-------|-------|
-| ClusterQueue | `t4-queue` — **3** GPUs, `withinClusterQueue: LowerPriority` |
+| ClusterQueue | `t4-queue` — **2** GPUs, `withinClusterQueue: LowerPriority` |
 | LocalQueue | `inference-queue` → `t4-queue` |
 | Priorities | `medium-priority` (500), `high-priority` (1000) |
+
+
+### Enable Kueue in the RHOAI Dashboard
+
+Before creating queues, make sure Kueue integration is turned on in the dashboard.
+Edit the `OdhDashboardConfig` CR and set `disableKueue: false`:
+
+```bash
+oc patch OdhDashboardConfig odh-dashboard-config -n redhat-ods-applications \
+  --type merge -p '{"spec":{"dashboardConfig":{"disableKueue":false}}}'
+```
+
+> **Verify:** Open the RHOAI dashboard — the **Distributed workload metrics** tab should now appear under **Settings**.
+
+### Apply Kueue resources
 
 ```bash
 oc apply -f use-case3/00-namespace.yaml
@@ -26,9 +41,20 @@ oc get clusterqueue t4-queue -o wide
 oc get localqueue -n gpuaas-demo
 ```
 
-**Expect:** priorities `500` / `1000`, queue `Active`, GPU quota **3**, empty.
+**Expect:** priorities `500` / `1000`, queue `Active`, GPU quota **2**, empty.
 
-In the **RHOAI console**, create a HardwareProfile on project `gpuaas-demo` tied to LocalQueue **`inference-queue`** (T4 / GPU) with **medium** priority so the preemptor can win.
+
+### Create a HardwareProfile
+
+In the **RHOAI console**, create a HardwareProfile for project `gpuaas-demo` with these settings:
+
+| Setting | Value |
+|---------|-------|
+| LocalQueue | `inference-queue` |
+| GPU accelerator | **1** (T4) |
+| Priority | **medium** |
+
+> Setting medium priority here is intentional — it lets the high-priority preemptor job win during the demo.
 
 ---
 
@@ -61,7 +87,7 @@ oc get clusterqueue t4-queue -o wide
 ```
 
 **Expect:**
-- `high-priority-inference-job` → `Admitted` (3 pods × 1 GPU)
+- `high-priority-inference-job` → `Admitted` (2 pods × 1 GPU)
 - Model workload → `Evicted` / `Inadmissible` (not deleted, not permanently Failed)
 - Serving pods stop; preemptor pods Running
 
@@ -108,7 +134,7 @@ oc delete -f use-case3/00-namespace.yaml --ignore-not-found
 
 ## Notes
 
-- Use a **small** catalog model so Phase 1 is fast and fits under the 3-GPU quota until the preemptor claims all three.
+- Use a **small** catalog model so Phase 1 is fast and fits under the 2-GPU quota until the preemptor claims all three.
 - Preemptor uses `kueue.x-k8s.io/queue-name` and `kueue.x-k8s.io/priority-class` on Job metadata **and** pod template labels; `spec.suspend: true`.
 - Kueue needs `BatchJob` plus serving frameworks (`Deployment` / `StatefulSet`) — see root README.
-- Clean up other use-case queues first if they still hold these 3 T4s.
+- Clean up other use-case queues first if they still hold these 2 T4s.

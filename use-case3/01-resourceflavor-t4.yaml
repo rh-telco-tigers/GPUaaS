@@ -4,8 +4,8 @@ metadata:
   name: t4-gpu
 spec:
   nodeLabels:
-    nvidia.com/gpu.product: NVIDIA-T4
-  #tolerations:
-  #- key: "nvidia.com/gpu"
- #   operator: "Exists"
- #   effect: "NoSchedule"
+    nvidia.com/gpu.product: Tesla-T4
+  tolerations:
+  - key: "nvidia.com/gpu"
+    operator: "Exists"
+    effect: "NoSchedule"

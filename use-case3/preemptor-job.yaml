@@ -1,14 +1,3 @@
-# UC2: Priority & Preemption — high-priority inference job (alice)
-#
-#
-# Demo flow:
-#   1. medium-priority DS jobs fill inference-queue
-#   2. Apply this file — high-priority job arrives
-#   3. Kueue preempts one of jobs to admit high priority job immediately
-#   4. Evicted job becomes Inadmissible (not deleted) — re-admits when high priority job finishes
-#
-# NOTE: kueue.x-k8s.io/queue-name must be in Pod template LABELS (not Job annotations)
-
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -19,8 +8,8 @@ metadata:
     kueue.x-k8s.io/priority-class: high-priority
 spec:
   suspend: true
-  parallelism: 3
-  completions: 3
+  parallelism: 2
+  completions: 2
   template:
     metadata:
       labels:
