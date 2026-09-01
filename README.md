@@ -12,12 +12,20 @@ Each use case is self-contained: flavors, queues, and workloads live in that fol
 - GPU nodes available (demos target **3× T4**)
 - In the DataScienceCluster, Kueue is **Removed** before installing the operator:
 
+
+1. Log into the OpenShift cluster
+2. Run `oc get datasciencecluster`
+3. Edit the datasciencecluster `oc edit dsc/default-dsc`
+4. Ensure that `spec.components.kueue.managementState` is set to `Removed`
+
 ```yaml
 spec:
   components:
     kueue:
       managementState: Removed
 ```
+
+This can also be done with the following command `oc patch datasciencecluster default-dsc --type='json' -p='[{"op": "replace", "path": "/spec/components/kueue/managementState", "value": "Removed"}]'`
 
 ---
 
@@ -69,20 +77,20 @@ oc get node -l nvidia.com/gpu.product=Tesla-T4-SHARED -o json \
 
 ### 1. Install the operator
 
-Via the OpenShift console (OperatorHub), or:
+#### Via the OpenShift console (OperatorHub)
 
-```bash
-helm install kueue-operator ./helm-charts/kueue -n openshift-kueue-operator --create-namespace
-```
+1. Log into OpenShift Web Console as cluster admin
+2. Select Ecosystem -> Software Catalog
+3. Search for `Red Hat build of Kueue`
+4. Select the Operator and then click `Install` using all defaults
+5. Click `Install` to complete the install
 
-Then set Kueue to **Unmanaged** in the DataScienceCluster:
+#### Via Command Line
 
-```yaml
-spec:
-  components:
-    kueue:
-      managementState: Unmanaged
-```
+1. Log into openshift 
+2. run `oc apply -f ./rhb-kueue/operator`
+
+> **Note:** If the `oc apply` command gives an error when applying the operator, wait one minute and then re-run the command. Not all CSRs may be immediately available to start the operator.
 
 Verify:
 
@@ -93,25 +101,23 @@ oc get pods -n openshift-kueue-operator
 
 CSV should be `Succeeded`; operator and controller pods `Running`.
 
-### 2. Enable workload frameworks
+### 2. Create Kueue Instance
 
-Patch the `Kueue` CR so Jobs (and related frameworks) are managed:
+If you are using the UI to create the Operator Instance, follow these steps:
 
-```bash
-oc patch kueues.kueue.openshift.io cluster --type merge -p '{
-  "spec": {
-    "config": {
-      "integrations": {
-        "frameworks": ["BatchJob","Deployment","StatefulSet","PyTorchJob","RayCluster","RayJob","TrainJob"]
-      }
-    }
-  }
-}'
+1. Log into the cluster
+2. Select Ecosystem->Installed Operators
+3. Select the `Red Hat build of Kueue`
+4. Select the `Create instance` 
+5. Paste the contents of the `rhb-kueue\kueue.yaml` file and click create
+
+If you are installing from the command line run the following command
+
+```sh
+oc apply -f rhb-kueue/kueue.yaml
 ```
 
-**Note:** Prefer not enabling `Pod` together with `BatchJob` — Job child pods can stick on scheduling gates.
-
-Namespaces used by demos are labeled `kueue.openshift.io/managed: "true"` in each use-case manifest — no separate global queue config needed.
+Namespaces used by demos are labeled `kueue.openshift.io/managed: "true"` in each use-case manifest - no separate global queue config needed.
 
 ---
 

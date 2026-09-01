@@ -23,7 +23,7 @@ spec:
               mem = torch.cuda.get_device_properties(0).total_memory / 1e9
               print(f"fifo-fill-1 | Node: {socket.gethostname()} | GPU: {torch.cuda.get_device_name(0)} | VRAM: {mem:.1f}GB")
               x = torch.randn(1024, 1024, device='cuda')
-              for i in range(360):  # 30 min hold
+              for i in range(60):  # 5 min hold
                   _ = torch.mm(x, x)
                   time.sleep(5)
           resources:
@@ -59,7 +59,7 @@ spec:
               mem = torch.cuda.get_device_properties(0).total_memory / 1e9
               print(f"fifo-fill-2 | Node: {socket.gethostname()} | GPU: {torch.cuda.get_device_name(0)} | VRAM: {mem:.1f}GB")
               x = torch.randn(1024, 1024, device='cuda')
-              for i in range(360):  # 30 min hold
+              for i in range(120):  # 10 min hold
                   _ = torch.mm(x, x)
                   time.sleep(5)
           resources:
@@ -95,7 +95,7 @@ spec:
               mem = torch.cuda.get_device_properties(0).total_memory / 1e9
               print(f"fifo-fill-3 | Node: {socket.gethostname()} | GPU: {torch.cuda.get_device_name(0)} | VRAM: {mem:.1f}GB")
               x = torch.randn(1024, 1024, device='cuda')
-              for i in range(360):  # 30 min hold
+              for i in range(60):  # 5 min hold
                   _ = torch.mm(x, x)
                   time.sleep(5)
           resources:

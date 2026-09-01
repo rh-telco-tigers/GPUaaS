@@ -17,6 +17,8 @@ oc apply -f use-case2/02-clusterqueue-3gpu-fifo.yaml
 oc apply -f use-case2/03-localqueue.yaml
 ```
 
+> **NOTE:** If you are using a GPU other than Tesla T-4, you will need to create a new resourceflavor, clusterqueue and localqueue to match and update your jobs. 
+
 Confirm:
 
 ```bash
@@ -39,20 +41,37 @@ Three jobs, one GPU each. Only two fit.
 oc apply -f use-case2/04-jobs-fill-and-overflow.yaml
 ```
 
+Check the status of the workload:
+
 ```bash
-oc get workloads -n gpuaas-demo -w
-oc get jobs -n gpuaas-demo
-oc get clusterqueue t4-queue -o wide
+oc get workloads -n gpuaas-demo
+NAME                    QUEUE             RESERVED IN   ADMITTED   FINISHED   AGE
+job-fifo-fill-1-50b0a   team-fifo-queue   t4-queue      True                  5s
+job-fifo-fill-2-c3fa2   team-fifo-queue   t4-queue      True                  5s
+job-fifo-fill-3-49830   team-fifo-queue                                       5s
 ```
 
-**Expect:**
-- `fifo-fill-1`, `fifo-fill-2` → `Admitted` / Running
-- `fifo-waiter-3` → pending / `Inadmissible` (no free GPU quota)
-- Queue at **2 / 2**
+Check the status of the jobs:
+```sh
+$ oc get jobs -n gpuaas-demo
+NAME          STATUS      COMPLETIONS   DURATION   AGE
+fifo-fill-1   Running     0/1           112s       113s
+fifo-fill-2   Running     0/1           112s       113s
+fifo-fill-3   Suspended   0/1                      113s
+```
 
-The third job did not fail — it is waiting.
+Check the status of the clusterqueue
+```sh
+$ oc get clusterqueue t4-queue -o wide
+NAME       COHORT   STRATEGY         PENDING WORKLOADS   ADMITTED WORKLOADS
+t4-queue            BestEffortFIFO   1                   2
+```
 
-### Phase 2 — Free a slot; waiter admits
+Note that the third job did not fail, it is waiting for the next opportunity to run.
+
+### Phase 2 - Free a slot; waiter admits
+
+Wait 5 minutes for `fifo-fill-1` to complete. Once that job finishes, `fifo-fill-3` will automatically take the next spot in the queue and start. You can also speed up this process by running the following command:
 
 ```bash
 oc delete job fifo-fill-1 -n gpuaas-demo
@@ -99,6 +118,6 @@ oc delete -f use-case2/00-namespace.yaml --ignore-not-found
 ## Notes
 
 - Jobs use `spec.suspend: true` and `kueue.x-k8s.io/queue-name: team-fifo-queue` on Job metadata **and** pod template labels.
-- Quota math: 2 GPUs × 1 GPU per job → at most 2 admitted; the 3rd waits until capacity frees.
-- Kueue needs `BatchJob` enabled — see root README.
+- Quota math: 2 GPUs x 1 GPU per job ... at most 2 admitted; the 3rd waits until capacity frees.
+- Kueue needs `BatchJob` enabled - see root README.
 - Clean up other use-case queues first if they still hold these 2 T4s.
