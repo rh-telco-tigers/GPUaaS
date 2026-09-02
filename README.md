@@ -101,21 +101,39 @@ oc get pods -n openshift-kueue-operator
 
 CSV should be `Succeeded`; operator and controller pods `Running`.
 
-### 2. Create Kueue Instance
+### 2. Set Kueue to **Unmanaged** in the DataScienceCluster:
 
-If you are using the UI to create the Operator Instance, follow these steps:
-
-1. Log into the cluster
-2. Select Ecosystem->Installed Operators
-3. Select the `Red Hat build of Kueue`
-4. Select the `Create instance` 
-5. Paste the contents of the `rhb-kueue\kueue.yaml` file and click create
-
-If you are installing from the command line run the following command
-
-```sh
-oc apply -f rhb-kueue/kueue.yaml
+```yaml
+spec:
+  components:
+    kueue:
+      managementState: Unmanaged
 ```
+Verify:
+
+```bash
+oc get csv -n openshift-kueue-operator | grep kueue
+oc get pods -n openshift-kueue-operator
+```
+
+### 3. Enable workload frameworks
+
+Patch the `Kueue` CR so Jobs (and related frameworks) are managed:
+
+```bash
+oc patch kueues.kueue.openshift.io cluster --type merge -p '{
+  "spec": {
+    "config": {
+      "integrations": {
+        "frameworks": ["BatchJob","Deployment","StatefulSet","PyTorchJob","RayCluster","RayJob","TrainJob"]
+      }
+    }
+  }
+}'
+```
+
+**Note:** Prefer not enabling `Pod` together with `BatchJob` — Job child pods can stick on scheduling gates.
+
 
 Namespaces used by demos are labeled `kueue.openshift.io/managed: "true"` in each use-case manifest - no separate global queue config needed.
 
