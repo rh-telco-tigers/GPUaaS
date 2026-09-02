@@ -12,6 +12,7 @@ A shared GPU queue fills with lower-priority serving work. When a **high-priorit
 
 
 ### Enable Kueue in the RHOAI Dashboard
+> **NOTE:** This step should have been completed prior to starting this use case. If you are unable to set the localqueue in the next step re-run this command. 
 
 Before creating queues, make sure Kueue integration is turned on in the dashboard.
 Edit the `OdhDashboardConfig` CR and set `disableKueue: false`:
