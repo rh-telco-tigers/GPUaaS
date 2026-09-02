@@ -66,6 +66,8 @@ namespace/user-b created
 
 Follow the steps above, but deploy the model into namespace `user-b`
 
+> **NOTE:** You will need to ensure that the first Ministral model is fully deployed and running before deploying a second model to ensure that vllm memory management of each model does not conflict with each other.
+
 ### Step 4 - Check it
 
 ```bash
