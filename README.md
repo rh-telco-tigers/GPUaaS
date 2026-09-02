@@ -10,6 +10,7 @@ Each use case is self-contained: flavors, queues, and workloads live in that fol
 
 - OpenShift 4.22+ with cluster-admin (`oc`)
 - GPU nodes available (demos target **3× T4**)
+- Red Hat Cert Manager Operator installed
 - In the DataScienceCluster, Kueue is **Removed** before installing the operator:
 
 
@@ -24,6 +25,22 @@ spec:
     kueue:
       managementState: Removed
 ```
+
+### Installing Red Hat Cert Manager
+
+You will need to have Red Hat Cert Manager installed before proceeding. 
+
+1. Log into OpenShift 
+2. Select Ecosystem -> Software Catalog
+3. Search for `cert-manager` and select "cert-manager Operator for Red Hat OpenShift
+4. Select the Operator and then click `Install` using all defaults
+5. Click `Install` to complete the install
+
+### Via Command Line
+
+1. Log into openshift 
+2. run `oc apply -f ./rh-cert-manager/operator`
+
 
 This can also be done with the following command `oc patch datasciencecluster default-dsc --type='json' -p='[{"op": "replace", "path": "/spec/components/kueue/managementState", "value": "Removed"}]'`
 
@@ -109,6 +126,9 @@ spec:
     kueue:
       managementState: Unmanaged
 ```
+
+This can also be done with the following command `oc patch datasciencecluster default-dsc --type='json' -p='[{"op": "replace", "path": "/spec/components/kueue/managementState", "value": "Unmanaged"}]'`
+
 Verify:
 
 ```bash
