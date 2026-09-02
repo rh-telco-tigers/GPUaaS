@@ -157,6 +157,17 @@ oc patch kueues.kueue.openshift.io cluster --type merge -p '{
 
 Namespaces used by demos are labeled `kueue.openshift.io/managed: "true"` in each use-case manifest - no separate global queue config needed.
 
+
+### 4. Enable Kueue in the RHOAI Dashboard
+
+Before creating queues, make sure Kueue integration is turned on in the dashboard.
+Edit the `OdhDashboardConfig` CR and set `disableKueue: false`:
+
+```bash
+oc patch OdhDashboardConfig odh-dashboard-config -n redhat-ods-applications \
+  --type merge -p '{"spec":{"dashboardConfig":{"disableKueue":false}}}'
+```
+
 ---
 
 ## Use cases
